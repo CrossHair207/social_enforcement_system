@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Enforcement cases · {{ app_name }}{% endblock %}
+{% block heading %}Enforcement cases{% endblock %}
+{% block subtitle %}Each case is reviewed and evidenced independently.{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="card-head">
+    <h2>Filters</h2>
+    {% if can(user, 'case.create') %}
+    <a class="button primary small" href="/cases/new">New case</a>
+    {% endif %}
+  </div>
+  <form method="get" action="/cases" class="form-row">
+    <label>Search<input type="search" name="q" value="{{ filters.q }}" placeholder="Reference, title or URL"></label>
+    <label>Status
+      <select name="status">
+        <option value="">All</option>
+        {% for key, label in status_labels.items() %}
+        <option value="{{ key }}" {{ 'selected' if filters.status == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Platform
+      <select name="platform">
+        <option value="">All</option>
+        {% for key, label in platforms.items() %}
+        <option value="{{ key }}" {{ 'selected' if filters.platform == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Category
+      <select name="category">
+        <option value="">All</option>
+        {% for key, label in categories.items() %}
+        <option value="{{ key }}" {{ 'selected' if filters.category == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Priority
+      <select name="priority">
+        <option value="">All</option>
+        {% for value in priorities %}
+        <option value="{{ value }}" {{ 'selected' if filters.priority == value }}>{{ value|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>&nbsp;<button class="secondary" type="submit">Apply filters</button></label>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>{{ cases|length }} case(s)</h2></div>
+  {% if cases %}
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Case</th><th>Target</th><th>Category</th><th>Status</th><th>Support</th><th>Priority</th><th>Updated</th></tr>
+    </thead>
+    <tbody>
+    {% for item in cases %}
+      <tr>
+        <td>
+          <a href="/cases/{{ item.id }}">{{ item.case_ref }}</a>
+          <br><small>{{ item.title }}</small>
+        </td>
+        <td>
+          <small>{{ item.target.platform|platform_label }}</small><br>
+          <small class="hash">{{ item.target.public_identifier }}</small>
+        </td>
+        <td><small>{{ item.violation_category|category_label }}</small></td>
+        <td><span class="badge status-{{ item.status }}">{{ item.status|status_label }}</span></td>
+        <td><small>{{ item.evidence_confidence }} ({{ item.confidence_score }})</small></td>
+        <td><small>{{ item.priority|capitalize }}</small></td>
+        <td><small>{{ item.updated_at|dt }}</small></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No cases match these filters.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">SE</span>
+      <div>
+        <strong>Enforcement</strong>
+        <small>Management System</small>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="/dashboard" class="{{ 'active' if request.url.path == '/dashboard' }}">Overview</a>
+      <a href="/targets" class="{{ 'active' if request.url.path.startswith('/targets') }}">Target accounts</a>
+      <a href="/cases" class="{{ 'active' if request.url.path.startswith('/cases') }}">Enforcement cases</a>
+      <a href="/analytics" class="{{ 'active' if request.url.path.startswith('/analytics') }}">Analytics</a>
+      <a href="/notifications" class="{{ 'active' if request.url.path.startswith('/notifications') }}">
+        Notifications
+        {% if unread %}<span class="pill">{{ unread }}</span>{% endif %}
+      </a>
+      {% if can(user, 'settings.view') %}
+      <a href="/settings" class="{{ 'active' if request.url.path.startswith('/settings') }}">Settings</a>
+      {% endif %}
+      {% if user.role == 'admin' %}
+      <a href="/users" class="{{ 'active' if request.url.path.startswith('/users') }}">Users</a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="who">
+        <strong>{{ user.full_name or user.email }}</strong>
+        <span class="role">{{ user.role }}</span>
+      </div>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="link" type="submit">Sign out</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1>{% block heading %}{% endblock %}</h1>
+        <p class="subtitle">{% block subtitle %}{% endblock %}</p>
+      </div>
+      <div class="topbar-actions">
+        <form class="inline-search" method="get" action="/cases">
+          <input type="search" name="q" placeholder="Search cases" value="{{ filters.q if filters is defined else '' }}">
+          <button type="submit">Search</button>
+        </form>
+        <button class="ghost" type="button" id="theme-toggle" title="Toggle theme">◐</button>
+      </div>
+    </header>
+
+    <main class="content">
+      {% if message %}<div class="alert success">{{ message }}</div>{% endif %}
+      {% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      {{ app_name }} v{{ app_version }} ·
+      Evidence-based enforcement only · Official platform channels only
+    </footer>
+  </div>
+</div>
+<script>
+  (function () {
+    const root = document.documentElement;
+    const stored = localStorage.getItem('sems-theme');
+    if (stored) root.dataset.theme = stored;
+    const button = document.getElementById('theme-toggle');
+    if (button) button.addEventListener('click', function () {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      localStorage.setItem('sems-theme', next);
+    });
+  })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}{{ case.case_ref }} · {{ app_name }}{% endblock %}
+{% block heading %}{{ case.case_ref }} — {{ case.title }}{% endblock %}
+{% block subtitle %}{{ case.target.platform|platform_label }} · opened {{ case.created_at|dt }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="button-row" style="justify-content: space-between;">
+    <div class="button-row">
+      <span class="badge status-{{ case.status }}">{{ case.status|status_label }}</span>
+      <span class="badge">{{ case.priority|capitalize }} priority</span>
+      <span class="badge">{{ case.violation_category|category_label }}</span>
+      <span class="badge">{{ case.requested_action|replace('_',' ')|capitalize }}</span>
+    </div>
+    <div class="button-row">
+      {% if can(user, 'case.analyze') %}
+      <form method="post" action="/cases/{{ case.id }}/analyze">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="secondary small" type="submit">Run analysis</button>
+      </form>
+      {% endif %}
+      {% if can(user, 'case.export') %}
+      <a class="button secondary small" href="/cases/{{ case.id }}/export/pdf">PDF</a>
+      <a class="button secondary small" href="/cases/{{ case.id }}/export/docx">DOCX</a>
+      <a class="button secondary small" href="/cases/{{ case.id }}/export/txt">TXT</a>
+      <a class="button secondary small" href="/cases/{{ case.id }}/export/json">JSON</a>
+      <a class="button secondary small" href="/cases/{{ case.id }}/export/zip">Evidence ZIP</a>
+      {% endif %}
+      {% if can(user, 'case.delete') %}
+      <form method="post" action="/cases/{{ case.id }}/delete"
+            onsubmit="return confirm('Delete this case and its evidence? This cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="danger small" type="submit">Delete case</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="card">
+    <div class="card-head"><h2>Case summary</h2></div>
+    <dl class="kv">
+      <dt>Target URL</dt>
+      <dd><a href="{{ case.target.url }}" target="_blank" rel="noopener noreferrer">{{ case.target.url }}</a></dd>
+      <dt>Public identifier</dt><dd class="mono">{{ case.target.public_identifier }}</dd>
+      <dt>Display name</dt><dd>{{ case.target.display_name or '—' }}</dd>
+      <dt>Evidence support</dt><dd>{{ case.evidence_confidence }} ({{ case.confidence_score }}/100)</dd>
+      <dt>Manual review</dt>
+      <dd>{% if case.manual_review_confirmed %}confirmed{% else %}<span class="muted">not confirmed</span>{% endif %}</dd>
+      <dt>Recommended channel</dt><dd>{{ case.recommended_channel or '—' }}</dd>
+      <dt>Submitted</dt><dd>{{ case.submitted_at|dt }}</dd>
+      <dt>Follow-up due</dt><dd>{{ case.follow_up_at|dt }}</dd>
+      <dt>Platform decision</dt>
+      <dd>
+        {% if case.is_confirmed_outcome %}
+          <span class="badge status-page_removed">Platform-confirmed</span> {{ case.decision_summary }}
+          {% if case.decision_reference %}<br><small class="hash">ref {{ case.decision_reference }}</small>{% endif %}
+        {% else %}
+          <span class="muted">No platform-confirmed outcome recorded</span>
+        {% endif %}
+      </dd>
+      <dt>Reporter</dt>
+      <dd>{{ case.reporter_name or '—' }}{% if case.reporter_org %} · {{ case.reporter_org }}{% endif %}
+        {% if reporter_email_masked %}<br><small class="muted">{{ reporter_email_masked }}</small>{% endif %}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Documented conduct</h2></div>
+    <p style="white-space: pre-wrap;">{{ case.description or 'No conduct description recorded.' }}</p>
+    {% if can(user, 'case.edit') %}
+    <details class="panel" style="margin-top: 12px;">
+      <summary>Edit case details</summary>
+      <div class="panel-body">
+        <form method="post" action="/cases/{{ case.id }}/update" class="stack">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label>Title<input name="title" value="{{ case.title }}" maxlength="250" required></label>
+          <label>Documented conduct<textarea name="description" rows="6">{{ case.description }}</textarea></label>
+          <div class="form-grid">
+            <label>Category
+              <select name="violation_category">
+                {% for key, label in categories.items() %}
+                <option value="{{ key }}" {{ 'selected' if key == case.violation_category }}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Priority
+              <select name="priority">
+                {% for value in priorities %}
+                <option value="{{ value }}" {{ 'selected' if value == case.priority }}>{{ value|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Requested action
+              <select name="requested_action">
+                {% for value in requested_actions %}
+                <option value="{{ value }}" {{ 'selected' if value == case.requested_action }}>{{ value|replace('_',' ')|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Reporter name<input name="reporter_name" value="{{ case.reporter_name }}"></label>
+            <label>Organisation<input name="reporter_org" value="{{ case.reporter_org }}"></label>
+            <label>Reporter e-mail<input type="email" name="reporter_email" placeholder="leave blank to keep current"></label>
+          </div>
+          <button class="primary small" type="submit">Save changes</button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+  </div>
+</section>
+
+<details class="panel" id="analysis" {{ 'open' if analysis }}>
+  <summary>Violation analysis &amp; cited policies</summary>
+  <div class="panel-body">
+    {% if analysis %}
+      <div class="grid cards" style="margin-bottom: 14px;">
+        <div><span class="metric-label">Evidence support</span><div class="metric-value">{{ analysis.get('confidence') }}</div></div>
+        <div><span class="metric-label">Score</span><div class="metric-value">{{ analysis.get('score') }}/100</div></div>
+        <div><span class="metric-label">Evidence items</span><div class="metric-value">{{ case.evidence|length }}</div></div>
+      </div>
+      <p><strong>{{ analysis.get('summary') }}</strong></p>
+      {% if analysis.get('warnings') %}
+      <div class="alert warning">
+        <ul class="list">{% for warning in analysis.get('warnings') %}<li>{{ warning }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if analysis.get('missing_evidence') %}
+      <h3>Outstanding evidence</h3>
+      <ul class="list">
+        {% for item in analysis.get('missing_evidence') %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      <details>
+        <summary>Scoring detail</summary>
+        <table class="table" style="margin-top:8px;">
+          <thead><tr><th>Signal</th><th>Points</th><th>Reason</th></tr></thead>
+          <tbody>
+          {% for component in analysis.get('components', []) %}
+            <tr><td>{{ component.item }}</td><td>{{ component.points }}</td><td><small>{{ component.reason }}</small></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      <pre class="text">{{ analysis.get('explanation','') }}</pre>
+    {% else %}
+      <p class="muted">No analysis has been run on this case yet.</p>
+    {% endif %}
+
+    <h3>Policies for this category ({{ case.target.platform|platform_label }})</h3>
+    {% for policy in policy_catalog %}
+    <div style="margin-bottom:10px;">
+      <strong>{{ policy.title }}</strong><br>
+      <a href="{{ policy.url }}" target="_blank" rel="noopener noreferrer">{{ policy.url }}</a>
+      <p class="muted small">{{ policy.summary }}</p>
+      {% if policy.evidence_expectations %}
+      <small class="muted">Platform expects: {{ policy.evidence_expectations|join('; ') }}</small>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <p class="fineprint">{{ policy_source_note }}</p>
+  </div>
+</details>
+
+<details class="panel" id="evidence" open>
+  <summary>Evidence ({{ case.evidence|length }} item(s))</summary>
+  <div class="panel-body">
+    {% if can(user, 'evidence.upload') %}
+    <div class="grid two" style="margin-bottom: 16px;">
+      <form method="post" action="/cases/{{ case.id }}/evidence" enctype="multipart/form-data" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <strong>Upload files</strong>
+        <label>Files (screenshots, recordings, documents)
+          <input type="file" name="files" multiple required>
+        </label>
+        <div class="form-grid">
+          <label>Kind
+            <select name="kind">
+              {% for kind in evidence_kinds %}<option value="{{ kind }}">{{ kind|replace('_',' ')|capitalize }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Captured on (YYYY-MM-DD)
+            <input type="date" name="captured_at">
+          </label>
+        </div>
+        <label>Description<input name="description" maxlength="4000"></label>
+        <label>Source URL (optional)<input name="source_url" placeholder="https://..."></label>
+        <button class="primary small" type="submit">Store evidence</button>
+      </form>
+
+      <form method="post" action="/cases/{{ case.id }}/evidence-link" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <strong>Record a public URL</strong>
+        <p class="muted small">Stores the URL with a capture timestamp and hash; no third-party login is used.</p>
+        <label>URL<input name="source_url" required placeholder="https://www.facebook.com/post/..."></label>
+        <label>Kind
+          <select name="kind">
+            <option value="profile_url">Profile / Page URL</option>
+            <option value="post_url">Post URL</option>
+          </select>
+        </label>
+        <label>Description<input name="description" maxlength="4000"></label>
+        <button class="secondary small" type="submit">Record URL</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if case.evidence %}
+    <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>#</th><th>File</th><th>Kind</th><th>Captured</th><th>Size</th><th>SHA-256</th><th></th></tr></thead>
+      <tbody>
+      {% for item in case.evidence %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>
+            <a href="/evidence/{{ item.id }}/download">{{ item.original_name }}</a>
+            {% if item.source_url %}<br><small class="hash">{{ item.source_url }}</small>{% endif %}
+            {% if item.description %}<br><small>{{ item.description }}</small>{% endif %}
+          </td>
+          <td><small>{{ item.kind|replace('_',' ') }}</small></td>
+          <td><small>{{ item.captured_at|dt }}</small></td>
+          <td><small>{{ item.size_bytes }} B</small></td>
+          <td><span class="hash">{{ item.sha256 }}</span></td>
+          <td>
+            <div class="button-row">
+              <form method="post" action="/evidence/{{ item.id }}/verify">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="secondary small" type="submit">Verify</button>
+              </form>
+              {% if can(user, 'evidence.delete') %}
+              <form method="post" action="/evidence/{{ item.id }}/delete"
+                    onsubmit="return confirm('Remove this evidence item?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="danger small" type="submit">Remove</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted">No evidence filed. A case cannot be submitted without at least one item.</p>
+    {% endif %}
+  </div>
+</details>
+
+<details class="panel" id="submission" {{ 'open' if case.submissions }}>
+  <summary>Official submission</summary>
+  <div class="panel-body">
+    {% if package %}
+      {% if package.blockers %}
+      <div class="alert warning">
+        <strong>Not ready to submit:</strong>
+        <ul class="list">{% for blocker in package.blockers %}<li>{{ blocker }}</li>{% endfor %}</ul>
+      </div>
+      {% else %}
+      <div class="alert success">All preparation checks pass.</div>
+      {% endif %}
+
+      <dl class="kv">
+        <dt>Official channel</dt>
+        <dd><a href="{{ package.channel.url }}" target="_blank" rel="noopener noreferrer">{{ package.channel.label }}</a> ({{ package.channel.method|replace('_',' ') }})</dd>
+        <dt>Automation</dt>
+        <dd>{{ package.api_capability.notes }}</dd>
+      </dl>
+
+      <h3>Procedure</h3>
+      <ol class="list">
+        {% for step in package.instructions %}<li>{{ step }}</li>{% endfor %}
+      </ol>
+
+      {% if can(user, 'case.edit') and not case.manual_review_confirmed %}
+      <form method="post" action="/cases/{{ case.id }}/review" class="stack" style="margin-top:12px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Reviewer note (required)
+          <textarea name="confirmed_note" rows="3" placeholder="State what you verified: policy match, evidence authenticity, target identity."></textarea>
+        </label>
+        <button class="secondary small" type="submit">Confirm manual review</button>
+      </form>
+      {% endif %}
+
+      {% if can(user, 'case.submit') %}
+      <h3>Record the submission you made</h3>
+      <form method="post" action="/cases/{{ case.id }}/submit" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-grid">
+          <label>Channel used<input name="channel_label" value="{{ package.channel.label }}"></label>
+          <label>Platform reference / confirmation
+            <input name="reference" required placeholder="Case number or confirmation text">
+          </label>
+          <label>Method
+            <select name="method">
+              <option value="manual">Manual (official form / in-app)</option>
+              {% if package.api_capability.takedown_submission %}
+              <option value="official_api">Official API</option>
+              {% endif %}
+            </select>
+          </label>
+        </div>
+        <label>Notes<input name="notes" maxlength="4000"></label>
+        <button class="primary small" type="submit">Record submission</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <p class="muted">Submission tooling is not available to your role.</p>
+    {% endif %}
+
+    {% if case.submissions %}
+    <h3>Submission history</h3>
+    <table class="table">
+      <thead><tr><th>When</th><th>Channel</th><th>Method</th><th>Reference</th></tr></thead>
+      <tbody>
+      {% for item in case.submissions %}
+        <tr><td><small>{{ item.submitted_at|dt }}</small></td><td>{{ item.channel }}</td>
+        <td><small>{{ item.method }}</small></td><td><small class="mono">{{ item.reference }}</small></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if can(user, 'case.decide') and platform_options %}
+    <h3>Record a platform response</h3>
+    <p class="muted small">
+      Only quote what the platform actually sent. Confirmed outcomes require the platform's
+      reference and a recorded submission.
+    </p>
+    <form method="post" action="/cases/{{ case.id }}/platform-response" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <label>Reported outcome
+          <select name="platform_status">
+            {% for option in platform_options %}
+            <option value="{{ option }}">{{ option|status_label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Platform reference<input name="reference" required></label>
+      </div>
+      <label>Quoted response<textarea name="note" rows="3" required></textarea></label>
+      <button class="secondary small" type="submit">Record platform response</button>
+    </form>
+    {% endif %}
+  </div>
+</details>
+
+<details class="panel" id="appeals">
+  <summary>Appeals</summary>
+  <div class="panel-body">
+    {% if case.appeals %}
+    <table class="table">
+      <thead><tr><th>Status</th><th>Reference</th><th>Deadline</th><th>Reason</th><th></th></tr></thead>
+      <tbody>
+      {% for appeal in case.appeals %}
+        <tr>
+          <td><span class="badge">{{ appeal.status }}</span></td>
+          <td><small class="mono">{{ appeal.reference or '—' }}</small></td>
+          <td><small>{{ appeal.deadline_at|dt }}</small></td>
+          <td><small>{{ appeal.reason }}</small></td>
+          <td>
+            {% if appeal.status == 'drafted' and can(user, 'appeal.manage') %}
+            <form method="post" action="/appeals/{{ appeal.id }}/submit" class="button-row">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input name="reference" placeholder="Appeal reference" required style="width:160px;">
+              <button class="secondary small" type="submit">Mark submitted</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No appeal recorded.</p>
+    {% endif %}
+
+    {% if can(user, 'appeal.manage') and case.decision_reference %}
+    <form method="post" action="/cases/{{ case.id }}/appeal" class="stack" style="margin-top:12px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Grounds for appeal
+        <textarea name="reason" rows="4" required
+          placeholder="Explain why the decision is wrong, referencing the policy and the evidence already filed."></textarea>
+      </label>
+      <button class="secondary small" type="submit">Draft appeal</button>
+    </form>
+    {% endif %}
+  </div>
+</details>
+
+<details class="panel" id="history">
+  <summary>History, status changes and notes</summary>
+  <div class="panel-body">
+    {% if can(user, 'case.transition') and stage_options %}
+    <form method="post" action="/cases/{{ case.id }}/status" class="stack" style="margin-bottom:16px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <label>Move to
+          <select name="to_status">
+            {% for option in stage_options %}<option value="{{ option }}">{{ option|status_label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Note<input name="note" maxlength="4000"></label>
+      </div>
+      <button class="secondary small" type="submit">Update status</button>
+    </form>
+    {% endif %}
+
+    <h3>Status history</h3>
+    <ul class="timeline">
+      {% for event in case.status_events %}
+      <li>
+        <time>{{ event.created_at|dt }}</time>
+        {{ event.from_status|status_label }} → <strong>{{ event.to_status|status_label }}</strong>
+        <small class="muted">[{{ event.source }}]</small>
+        {% if event.note %}<div><small>{{ event.note }}</small></div>{% endif %}
+      </li>
+      {% else %}
+      <li>No status changes recorded.</li>
+      {% endfor %}
+    </ul>
+
+    <h3>Notes</h3>
+    {% if case.notes %}
+    <ul class="list">
+      {% for note in case.notes %}
+      <li>{{ note.body }} <small class="muted">— {{ note.created_at|dt }}</small></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No notes.</p>
+    {% endif %}
+    {% if can(user, 'case.comment') %}
+    <form method="post" action="/cases/{{ case.id }}/notes" class="stack" style="margin-top:10px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Add note<textarea name="body" rows="3" required></textarea></label>
+      <button class="secondary small" type="submit">Add note</button>
+    </form>
+    {% endif %}
+  </div>
+</details>
+
+{% if stage_options and case.status in ['new_case', 'under_investigation', 'evidence_required', 'evidence_verified', 'ready_for_submission'] %}
+<section class="card">
+  <div class="card-head"><h2>Next step</h2></div>
+  <p class="muted small">
+    Move the case through internal stages as work completes. Platform-result statuses can only be
+    recorded through a quoted platform response.
+  </p>
+</section>
+{% endif %}
+{% endblock %}

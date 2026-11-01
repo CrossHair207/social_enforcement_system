@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}New case · {{ app_name }}{% endblock %}
+{% block heading %}Open an enforcement case{% endblock %}
+{% block subtitle %}Record what happened, cite the policy, then collect evidence before submitting.{% endblock %}
+
+{% block content %}
+{% if not targets %}
+<div class="alert warning">
+  No targets exist yet. <a href="/targets">Add the profile or Page</a> first.
+</div>
+{% else %}
+<form method="post" action="/cases" class="card stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="form-grid">
+    <label>Target
+      <select name="target_id" required>
+        {% for target in targets %}
+        <option value="{{ target.id }}" {{ 'selected' if selected_target and selected_target.id == target.id }}>
+          {{ target.public_identifier }} — {{ target.platform|platform_label }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Alleged violation
+      <select name="violation_category" required>
+        {% for key, label in categories.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Priority
+      <select name="priority">
+        {% for value in priorities %}
+        <option value="{{ value }}" {{ 'selected' if value == 'normal' }}>{{ value|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Requested action
+      <select name="requested_action">
+        {% for value in requested_actions %}
+        <option value="{{ value }}" {{ 'selected' if value == 'account_disabling' }}>{{ value|replace('_', ' ')|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+  <label>Case title
+    <input name="title" required maxlength="250" placeholder="Short neutral description">
+  </label>
+  <label>Documented conduct
+    <textarea name="description" rows="7" maxlength="8000"
+      placeholder="Describe only observable actions: what was published, when, to whom, and why it breaches the cited policy."></textarea>
+  </label>
+  <p class="muted small">
+    Do not describe the target's identity, popularity or your personal disagreement. The
+    analyzer scores evidence support and never decides that a violation occurred.
+  </p>
+  <div class="form-grid">
+    <label>Reporter name
+      <input name="reporter_name" maxlength="150">
+    </label>
+    <label>Reporter organisation
+      <input name="reporter_org" maxlength="150">
+    </label>
+    <label>Reporter e-mail (encrypted at rest)
+      <input type="email" name="reporter_email">
+    </label>
+  </div>
+  <div class="button-row">
+    <button class="primary" type="submit">Create case</button>
+    <a class="button secondary" href="/cases">Cancel</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Target accounts · {{ app_name }}{% endblock %}
+{% block heading %}Target accounts{% endblock %}
+{% block subtitle %}Public profiles and Pages under consideration. No credentials are ever stored.{% endblock %}
+
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <div class="card-head"><h2>Add a target</h2></div>
+    <form method="post" action="/targets" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <label>Platform
+          <select name="platform">
+            <option value="">Detect automatically</option>
+            {% for key, label in platforms.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Display name (optional)
+          <input name="display_name" maxlength="200" placeholder="As shown publicly">
+        </label>
+      </div>
+      <label>Profile or Page URL
+        <input name="url" required placeholder="https://www.instagram.com/example">
+      </label>
+      <div class="form-grid">
+        <label>Internal category (optional)
+          <input name="category" maxlength="80" placeholder="e.g. brand-impersonation cluster">
+        </label>
+        <label>Notes (optional)
+          <input name="notes" maxlength="4000" placeholder="Why this target is being tracked">
+        </label>
+      </div>
+      <div class="button-row">
+        <button class="primary" type="submit">Add target</button>
+        <a class="button secondary" href="/targets/export.csv">Export CSV</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Import targets</h2></div>
+    <p class="muted small">
+      CSV columns: <code>url</code>, optional <code>platform</code>, <code>display_name</code>,
+      <code>category</code>, <code>notes</code>. JSON accepts a list of objects with the same keys.
+      Duplicate URLs are skipped.
+    </p>
+    <form method="post" action="/targets/import" enctype="multipart/form-data" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="file" name="file" accept=".csv,.json" required>
+      <button class="secondary" type="submit">Import file</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Recorded targets ({{ targets|length }})</h2>
+    <form method="get" action="/targets" class="button-row">
+      <input type="search" name="q" value="{{ query }}" placeholder="Filter URL">
+      <select name="platform">
+        <option value="">All platforms</option>
+        {% for key, label in platforms.items() %}
+        <option value="{{ key }}" {{ 'selected' if filter_platform == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button class="secondary small" type="submit">Apply</button>
+    </form>
+  </div>
+  {% if targets %}
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Platform</th><th>Target</th><th>Identifier</th><th>Category</th><th>Added</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for target in targets %}
+      <tr>
+        <td>{{ target.platform|platform_label }}</td>
+        <td>
+          <a href="{{ target.url }}" target="_blank" rel="noopener noreferrer">{{ target.display_name or target.public_identifier }}</a>
+          <br><small class="hash">{{ target.url }}</small>
+        </td>
+        <td class="mono">{{ target.public_identifier }}</td>
+        <td><small>{{ target.category or '—' }}</small></td>
+        <td><small>{{ target.created_at|dt }}</small></td>
+        <td>
+          {% if can(user, 'case.create') %}
+          <a class="button secondary small" href="/cases/new?target_id={{ target.id }}">Open case</a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No targets recorded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

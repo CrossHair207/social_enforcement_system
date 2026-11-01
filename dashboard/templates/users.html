@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Users · {{ app_name }}{% endblock %}
+{% block heading %}Users{% endblock %}
+{% block subtitle %}Role-based access. Accounts are provisioned here; there is no self-registration.{% endblock %}
+
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <div class="card-head"><h2>Staff accounts</h2></div>
+    <table class="table">
+      <thead><tr><th>E-mail</th><th>Name</th><th>Role</th><th>Status</th><th>Last login</th></tr></thead>
+      <tbody>
+      {% for row in users %}
+        <tr>
+          <td>{{ row.email }}</td>
+          <td><small>{{ row.full_name or '—' }}</small></td>
+          <td><span class="badge">{{ row.role }}</span></td>
+          <td><small>{{ 'active' if row.is_active else 'disabled' }}</small></td>
+          <td><small>{{ row.last_login_at|dt }}</small></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Create user</h2></div>
+    <form method="post" action="/users" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>E-mail<input type="email" name="email" required></label>
+      <label>Full name<input name="full_name" maxlength="120"></label>
+      <label>Role
+        <select name="role">
+          <option value="viewer">Viewer</option>
+          <option value="analyst" selected>Analyst</option>
+          <option value="manager">Manager</option>
+          <option value="admin">Administrator</option>
+        </select>
+      </label>
+      <label>Initial password<input type="password" name="password" required autocomplete="new-password"></label>
+      <button class="primary small" type="submit">Create user</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

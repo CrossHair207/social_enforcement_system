@@ -1,0 +1,16 @@
+[
+  {
+    "url": "https://www.facebook.com/pages/Example-Support/123456789012345",
+    "platform": "facebook_pages",
+    "display_name": "Example Support (unverified)",
+    "category": "brand-impersonation",
+    "notes": "Reported by two customers"
+  },
+  {
+    "url": "https://www.instagram.com/example_giveaway",
+    "platform": "",
+    "display_name": "Example Giveaway",
+    "category": "scam",
+    "notes": "Requests payment before delivery"
+  }
+]

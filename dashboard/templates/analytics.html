@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Analytics · {{ app_name }}{% endblock %}
+{% block heading %}Analytics{% endblock %}
+{% block subtitle %}Confirmed outcomes are counted separately from pending and unverified cases.{% endblock %}
+
+{% block content %}
+<section class="grid cards">
+  <div class="card metric"><span class="metric-label">Cases created</span><span class="metric-value">{{ overview.total_cases }}</span></div>
+  <div class="card metric"><span class="metric-label">Cases submitted</span><span class="metric-value">{{ overview.submitted_cases }}</span></div>
+  <div class="card metric accent"><span class="metric-label">Confirmed outcomes</span><span class="metric-value">{{ overview.confirmed_total }}</span>
+    <span class="metric-hint">{{ overview.confirmation_rate }}% of submitted cases</span></div>
+  <div class="card metric"><span class="metric-label">Pending</span><span class="metric-value">{{ overview.pending_cases }}</span></div>
+  <div class="card metric"><span class="metric-label">Rejected</span><span class="metric-value">{{ overview.rejected_cases }}</span></div>
+  <div class="card metric"><span class="metric-label">Open appeals</span><span class="metric-value">{{ overview.open_appeals }}</span></div>
+</section>
+
+<section class="grid three">
+  <div class="card">
+    <div class="card-head"><h2>Confirmed outcomes</h2></div>
+    <dl class="kv">
+      <dt>Accounts permanently disabled</dt><dd>{{ overview.permanently_disabled }}</dd>
+      <dt>Facebook Pages removed</dt><dd>{{ overview.pages_removed }}</dd>
+      <dt>Content removals</dt><dd>{{ overview.content_removed }}</dd>
+      <dt>Unverified removals</dt><dd>{{ overview.unverified_outcomes }}</dd>
+    </dl>
+    <p class="fineprint">
+      Unverified removals carry a removal status without a recorded platform confirmation and are
+      excluded from every other figure on this page.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Cases by platform</h2></div>
+    {% set max_cases = (by_platform|map(attribute='cases')|max) if by_platform else 1 %}
+    {% for row in by_platform %}
+    <div class="bar-row">
+      <span>{{ row.label }}</span>
+      <div class="bar"><i style="width: {{ (row.cases / (max_cases or 1) * 100)|round(1) }}%"></i></div>
+      <b>{{ row.cases }}</b>
+    </div>
+    {% else %}
+    <p class="muted">No data.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Cases by category</h2></div>
+    {% set max_cat = by_category[0].count if by_category else 1 %}
+    {% for row in by_category %}
+    <div class="bar-row">
+      <span>{{ row.label }}</span>
+      <div class="bar"><i style="width: {{ (row.count / (max_cat or 1) * 100)|round(1) }}%"></i></div>
+      <b>{{ row.count }}</b>
+    </div>
+    {% else %}
+    <p class="muted">No data.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>Status breakdown</h2></div>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Status</th><th>Cases</th><th>Share</th></tr></thead>
+    <tbody>
+    {% for row in by_status %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td>{{ row.count }}</td>
+        <td>
+          <div class="bar" style="max-width:280px;">
+            <i style="width: {{ (row.count / (overview.total_cases or 1) * 100)|round(1) }}%"></i>
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>Machine-readable</h2></div>
+  <p class="muted small">The same payload powering this page is available as JSON.</p>
+  <a class="button secondary small" href="/api/stats">Open /api/stats</a>
+</section>
+{% endblock %}

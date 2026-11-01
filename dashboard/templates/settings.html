@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ app_name }}{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block subtitle %}Runtime configuration and platform automation limits.{% endblock %}
+
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <div class="card-head"><h2>Configuration</h2></div>
+    <dl class="kv">
+      <dt>Environment</dt><dd>{{ configuration.environment }}</dd>
+      <dt>Database</dt><dd>{{ configuration.database }}</dd>
+      <dt>Data directory</dt><dd class="mono">{{ configuration.data_dir }}</dd>
+      <dt>Max upload</dt><dd>{{ configuration.max_upload_mb }} MB</dd>
+      <dt>Session lifetime</dt><dd>{{ configuration.session_max_age }} seconds</dd>
+      <dt>SMTP</dt>
+      <dd>{% if configuration.smtp_configured %}configured{% else %}<span class="muted">not configured (in-app only)</span>{% endif %}</dd>
+      <dt>Reminders</dt>
+      <dd>{{ 'enabled' if configuration.scheduler_enabled else 'disabled' }} · follow-up {{ configuration.follow_up_days }} days · appeal window {{ configuration.appeal_deadline_days }} days</dd>
+    </dl>
+    <p class="fineprint">
+      Secrets are read from the environment or <code>.env</code> and are never displayed here.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Change password</h2></div>
+    <form method="post" action="/settings/password" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Current password<input type="password" name="current_password" required autocomplete="current-password"></label>
+      <label>New password<input type="password" name="new_password" required autocomplete="new-password"></label>
+      <label>Confirm new password<input type="password" name="confirm_password" required autocomplete="new-password"></label>
+      <button class="primary small" type="submit">Update password</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>Platform automation capability</h2></div>
+  <p class="muted small">
+    Only officially supported automation is performed. Where a platform publishes no enforcement
+    API, the workflow prepares the request and the operator files it through the official channel.
+  </p>
+  <table class="table">
+    <thead><tr><th>Platform</th><th>Submission API</th><th>Status API</th><th>Notes</th></tr></thead>
+    <tbody>
+    {% for row in capabilities %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td>{{ 'available' if row.capability.takedown_submission else 'not available' }}</td>
+        <td>{{ 'available' if row.capability.status_retrieval else 'not available' }}</td>
+        <td><small class="muted">{{ row.capability.notes }}</small></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

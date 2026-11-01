@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Notifications · {{ app_name }}{% endblock %}
+{% block heading %}Notifications{% endblock %}
+{% block subtitle %}Generated from recorded events and scheduled reminders.{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="card-head">
+    <h2>{{ items|length }} notification(s)</h2>
+    <div class="button-row">
+      <form method="post" action="/notifications/read">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="secondary small" type="submit">Mark all read</button>
+      </form>
+      {% if user.role in ['admin', 'manager'] %}
+      <form method="post" action="/notifications/run-reminders">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="secondary small" type="submit">Run reminder cycle</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% if items %}
+  <table class="table">
+    <thead><tr><th>When</th><th>Level</th><th>Notification</th><th>Delivery</th></tr></thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td><small>{{ item.created_at|dt }}</small></td>
+        <td><span class="badge">{{ item.level }}</span></td>
+        <td>
+          <strong>{{ item.title }}</strong>
+          {% if item.body %}<div><small class="muted">{{ item.body }}</small></div>{% endif %}
+          {% if item.case_id %}<div><small><a href="/cases/{{ item.case_id }}">Open case</a></small></div>{% endif %}
+        </td>
+        <td><small>{{ item.delivery_status }}</small></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No notifications yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

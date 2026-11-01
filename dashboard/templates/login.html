@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-body">
+  <div class="auth-card">
+    <div class="brand auth-brand">
+      <span class="brand-mark">SE</span>
+      <div>
+        <strong>Enforcement</strong>
+        <small>Management System</small>
+      </div>
+    </div>
+    <h1>Sign in</h1>
+    <p class="muted">Authorised staff only. Every action on this system is audited.</p>
+    {% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>E-mail
+        <input type="email" name="email" autocomplete="username" required value="{{ email|default('') }}">
+      </label>
+      <label>Password
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button class="primary" type="submit">Sign in</button>
+    </form>
+    <p class="fineprint">
+      This system manages evidence-based enforcement requests through the platforms'
+      official reporting channels. It never collects third-party credentials.
+    </p>
+  </div>
+</body>
+</html>

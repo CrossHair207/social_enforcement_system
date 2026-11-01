@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Overview · {{ app_name }}{% endblock %}
+{% block heading %}Overview{% endblock %}
+{% block subtitle %}Cases you are pursuing and what the platforms have actually decided.{% endblock %}
+
+{% block content %}
+<section class="grid cards">
+  <div class="card metric">
+    <span class="metric-label">Total cases</span>
+    <span class="metric-value">{{ overview.total_cases }}</span>
+    <span class="metric-hint">{{ overview.pending_cases }} still open</span>
+  </div>
+  <div class="card metric">
+    <span class="metric-label">Submitted to platforms</span>
+    <span class="metric-value">{{ overview.submitted_cases }}</span>
+    <span class="metric-hint">{{ overview.submissions }} submission(s) recorded</span>
+  </div>
+  <div class="card metric accent">
+    <span class="metric-label">Platform-confirmed outcomes</span>
+    <span class="metric-value">{{ overview.confirmed_total }}</span>
+    <span class="metric-hint">
+      {{ overview.permanently_disabled }} disabled · {{ overview.pages_removed }} pages · {{ overview.content_removed }} content
+    </span>
+  </div>
+  <div class="card metric">
+    <span class="metric-label">Open cases</span>
+    <span class="metric-value">{{ overview.pending_cases }}</span>
+    <span class="metric-hint">{{ overview.rejected_cases }} rejected · {{ overview.open_appeals }} open appeal(s)</span>
+  </div>
+</section>
+
+{% if overview.unverified_outcomes %}
+<div class="alert warning">
+  {{ overview.unverified_outcomes }} case(s) carry a removal status without a recorded platform
+  confirmation. They are excluded from the confirmed-outcome figures above.
+</div>
+{% endif %}
+
+<section class="grid two">
+  <div class="card">
+    <div class="card-head">
+      <h2>Recent cases</h2>
+      <a href="/cases" class="small-link">All cases →</a>
+    </div>
+    {% if recent %}
+    <table class="table">
+      <thead><tr><th>Case</th><th>Target</th><th>Status</th><th>Support</th></tr></thead>
+      <tbody>
+      {% for item in recent %}
+        <tr>
+          <td><a href="/cases/{{ item.id }}">{{ item.case_ref }}</a><br><small>{{ item.title }}</small></td>
+          <td><small>{{ item.target.platform|platform_label }}<br>{{ item.target.public_identifier }}</small></td>
+          <td><span class="badge status-{{ item.status }}">{{ item.status|status_label }}</span></td>
+          <td><small>{{ item.evidence_confidence }}</small></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No cases yet. Add a target, then open a case against it.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Cases by platform</h2></div>
+    {% set max_platform = (by_platform|map(attribute='cases')|max) if by_platform else 1 %}
+    {% for row in by_platform %}
+    <div class="bar-row">
+      <span>{{ row.label }}</span>
+      <div class="bar"><i style="width: {{ (row.cases / (max_platform or 1) * 100)|round(1) }}%"></i></div>
+      <b>{{ row.cases }}</b>
+    </div>
+    {% else %}
+    <p class="muted">No cases recorded yet.</p>
+    {% endfor %}
+
+    <h3 class="section-title">Following up</h3>
+    {% if overdue %}
+    <ul class="list">
+      {% for item in overdue %}
+      <li><a href="/cases/{{ item.id }}">{{ item.case_ref }}</a> — follow-up due {{ item.follow_up_at|dt }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No follow-ups are overdue.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Platform-confirmed enforcement outcomes</h2>
+    <span class="muted small">Only outcomes quoted from the platform are listed here.</span>
+  </div>
+  {% if confirmed %}
+  <table class="table">
+    <thead><tr><th>Case</th><th>Target</th><th>Outcome</th><th>Reference</th><th>Recorded</th></tr></thead>
+    <tbody>
+    {% for item in confirmed %}
+      <tr>
+        <td><a href="/cases/{{ item.id }}">{{ item.case_ref }}</a></td>
+        <td><small>{{ item.target.url }}</small></td>
+        <td>{{ item.status|status_label }}</td>
+        <td><small>{{ item.decision_reference }}</small></td>
+        <td><small>{{ item.decision_at|dt }}</small></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No platform-confirmed outcomes recorded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
